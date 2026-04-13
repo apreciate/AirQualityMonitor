@@ -1,0 +1,44 @@
+# CMake
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Qt
+*.moc
+*.qrc.cpp
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Kompilator
+*.o
+*.obj
+*.exe
+*.out
+*.app
+*.dll
+*.so
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+*.user
+*.pro.user
+.qtcreator/
+
+# Doxygen
+docs/html/
+docs/latex/
+
+# Lokalna baza danych (nie wersjonujemy danych użytkownika)
+*.json
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
