@@ -100,32 +100,24 @@ void GiosApiClient::fetchSensors(int stationId, SensorsCallback onSuccess, Error
 }
 
 void GiosApiClient::fetchMeasurements(int sensorId,
-                                       MeasurementCallback onSuccess,
-                                       ErrorCallback onError)
+                                      MeasurementCallback onSuccess,
+                                      ErrorCallback onError)
 {
-    get(QString("/data/getData/%1").arg(sensorId),
-        [onSuccess, sensorId](QJsonDocument doc) {
-            QJsonObject root = doc.isObject() ? doc.object()
-                             : doc.array().first().toObject();
-            Measurement m;
-            m.sensorId = sensorId;
-
-            // Nowe API: klucz "Lista danych pomiarowych"
-            QJsonArray arr;
-            if (root.contains("Lista danych pomiarowych")) {
-                arr = root["Lista danych pomiarowych"].toArray();
-                m.key = root["Wskaźnik - kod"].toString();
-                if (m.key.isEmpty()) m.key = root["Wskaźnik"].toString();
-            } else if (root.contains("values")) {
-                arr = root["values"].toArray();
-                m.key = root["key"].toString();
-            }
-
-            for (const QJsonValue &v : arr)
-                m.values.push_back(MeasurementPoint::fromJson(v.toObject()));
-
-            onSuccess(std::move(m));
-        }, onError);
+    fetchAllPages(QString("/data/getData/%1").arg(sensorId),
+                  "Lista danych pomiarowych",
+                  [onSuccess, sensorId](QJsonArray arr) {
+                      Measurement m;
+                      m.sensorId = sensorId;
+                      // Klucz parametru z pierwszego elementu
+                      if (!arr.isEmpty()) {
+                          QJsonObject first = arr.first().toObject();
+                          m.key = first["Wskaźnik - kod"].toString();
+                          if (m.key.isEmpty()) m.key = first["Kod stanowiska"].toString();
+                      }
+                      for (const QJsonValue &v : arr)
+                          m.values.push_back(MeasurementPoint::fromJson(v.toObject()));
+                      onSuccess(std::move(m));
+                  }, onError);
 }
 
 

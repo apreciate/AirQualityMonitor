@@ -5,14 +5,15 @@
 #include <QStatusBar>
 #include <QProgressBar>
 #include <QLabel>
-#include <memory>
+//#include <memory>
 #include <vector>
 
 #include "../api/GiosApiClient.h"
-#include "../database/LocalDatabase.h"
+//#include "../database/LocalDatabase.h"
 #include "../models/Station.h"
 #include "../models/Sensor.h"
 #include "../models/Measurement.h"
+#include "../gui/HistoryWidget.h"
 
 class StationListWidget;
 class ChartWidget;
@@ -27,6 +28,8 @@ class MapWidget;
  *
  * Wzorzec projektowy: Mediator — MainWindow pośredniczy między widgetami.
  */
+
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -75,6 +78,7 @@ private:
     ChartWidget      *m_chart       = nullptr;
     AnalysisWidget   *m_analysis    = nullptr;
     MapWidget        *m_map         = nullptr;
+    HistoryWidget   *m_history       = nullptr;
 
     // Status bar
     QProgressBar *m_progressBar = nullptr;

@@ -44,6 +44,7 @@ set(SOURCES
     src/gui/ChartWidget.cpp
     src/gui/AnalysisWidget.cpp
     src/gui/MapWidget.cpp
+    src/gui/HistoryWidget.cpp
 )
 
 set(HEADERS
@@ -59,10 +60,13 @@ set(HEADERS
     src/gui/ChartWidget.h
     src/gui/AnalysisWidget.h
     src/gui/MapWidget.h
+    src/gui/HistoryWidget.h
 )
 
 # Main executable
-add_executable(AirQualityMonitor ${SOURCES} ${HEADERS})
+add_executable(AirQualityMonitor ${SOURCES} ${HEADERS}
+    src/gui/HistoryWidget.h
+    src/gui/HistoryWidget.cpp)
 
 if(QT_VERSION_MAJOR EQUAL 6)
     target_link_libraries(AirQualityMonitor

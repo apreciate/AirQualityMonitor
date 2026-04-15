@@ -27,6 +27,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupStatusBar();
     connectSignals();
     loadStationsFromApi();
+    m_history->refresh();
 }
 
 // ─── UI Setup ─────────────────────────────────────────────────────────────────
@@ -39,7 +40,10 @@ void MainWindow::setupUi()
     m_chart       = new ChartWidget(this);
     m_analysis    = new AnalysisWidget(this);
     m_map         = new MapWidget(this);
+    m_history     = new HistoryWidget(this);
 
+
+    m_tabs->addTab(m_history, "📂 Historia");
     m_tabs->addTab(m_stationList, "📋 Stacje");
     m_tabs->addTab(m_chart,       "📈 Wykres");
     m_tabs->addTab(m_analysis,    "🔍 Analiza");
@@ -97,6 +101,13 @@ void MainWindow::connectSignals()
             this, &MainWindow::onLoadingStarted);
     connect(m_apiClient, &GiosApiClient::loadingFinished,
             this, &MainWindow::onLoadingFinished);
+    connect(m_history, &HistoryWidget::measurementSelected,
+            this, [this](const Measurement &m) {
+                m_currentMeasurement = m;
+                m_chart->setMeasurement(m);
+                m_analysis->setMeasurement(m);
+                m_tabs->setCurrentWidget(m_chart);
+            });
 }
 
 // ─── Stacje ───────────────────────────────────────────────────────────────────
@@ -194,6 +205,12 @@ void MainWindow::onSensorSelected(int sensorId)
             m_chart->setMeasurement(m_currentMeasurement);
             m_analysis->setMeasurement(m_currentMeasurement);
             LocalDatabase::instance().saveMeasurement(m_currentMeasurement);
+            m_tabs->setCurrentWidget(m_chart);
+            LocalDatabase::instance().saveMeasurement(m_currentMeasurement);
+            m_history->refresh();
+            LocalDatabase::instance().saveStations(m_stations);
+            if (!m_sensors.empty())
+                LocalDatabase::instance().saveSensors(m_currentStationId, m_sensors);
             m_tabs->setCurrentWidget(m_chart);
             m_statusLabel->setText(
                 QString("Załadowano %1 punktów pomiarowych.")
