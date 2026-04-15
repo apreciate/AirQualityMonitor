@@ -169,6 +169,7 @@ UWAGI
 
 
 AUTOR
+A.F.
 -----
-  Projekt zaliczeniowy – JPO 2025/2026
+  Projekt zaliczeniowy – JPO 2026
 ================================================================================
