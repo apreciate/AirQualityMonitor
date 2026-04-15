@@ -1,6 +1,6 @@
 ================================================================================
   Monitor Jakości Powietrza – GIOŚ
-  Projekt zaliczeniowy: Języki Programowania Obiektowego 2025/2026
+  Projekt zaliczeniowy: Języki Programowania Obiektowego 2026
 ================================================================================
 
 OPIS PROJEKTU
