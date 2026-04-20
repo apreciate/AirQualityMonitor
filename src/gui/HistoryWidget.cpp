@@ -4,7 +4,6 @@
 #include <QListWidgetItem>
 #include <QDir>
 #include <QFileInfo>
-#include <QDateTime>
 #include <QMessageBox>
 
 HistoryWidget::HistoryWidget(QWidget *parent) : QWidget(parent) { setupUi(); }
@@ -16,10 +15,11 @@ void HistoryWidget::setupUi()
 
     auto *infoBar = new QLabel(
         "📂 Historia zapisanych pomiarów. "
-        "Kliknij wpis aby załadować dane na wykres.", this);
+        "Kliknij wpis aby załadować dane na wykres w trybie historycznym.", this);
+    infoBar->setWordWrap(true);
     infoBar->setStyleSheet(
-        "background:#f3e5f5;border:1px solid #ce93d8;"
-        "border-radius:4px;padding:8px;");
+        "background:#f3e5f5; border:1px solid #ce93d8; "
+        "border-radius:4px; padding:8px;");
     layout->addWidget(infoBar);
 
     m_list = new QListWidget(this);
@@ -55,7 +55,6 @@ void HistoryWidget::refresh()
     QStringList files = d.entryList({"measurements_*.json"}, QDir::Files, QDir::Time);
 
     for (const QString &file : files) {
-        // Wyciągnij sensorId z nazwy pliku
         QString idStr = file;
         idStr.remove("measurements_").remove(".json");
         int sensorId = idStr.toInt();
@@ -64,19 +63,38 @@ void HistoryWidget::refresh()
         if (!m) continue;
 
         QFileInfo fi(dir + "/" + file);
-        QString dateStr = fi.lastModified().toString("dd.MM.yyyy HH:mm");
+        QString savedAt = fi.lastModified().toString("dd.MM.yyyy HH:mm");
 
-        QString label = QString("Sensor %1 | %2 | %3 pkt | zapisano: %4")
-                            .arg(sensorId)
-                            .arg(m->key.isEmpty() ? "–" : m->key)
-                            .arg(m->values.size())
-                            .arg(dateStr);
+        // Oblicz rzeczywisty zakres dat zapisanych pomiarów
+        QDateTime earliest, latest;
+        for (const auto &p : m->values) {
+            if (!p.date.isValid()) continue;
+            if (!earliest.isValid() || p.date < earliest) earliest = p.date;
+            if (!latest.isValid()   || p.date > latest)   latest   = p.date;
+        }
+
+        QString rangeStr = (earliest.isValid() && latest.isValid())
+            ? QString("%1 → %2")
+              .arg(earliest.toString("dd.MM HH:mm"))
+              .arg(latest.toString("dd.MM HH:mm"))
+            : "brak dat";
+
+        QString label = QString("Sensor %1 | %2 | %3 pkt | %4 | zapisano: %5")
+            .arg(sensorId)
+            .arg(m->key.isEmpty() ? "–" : m->key)
+            .arg(m->values.size())
+            .arg(rangeStr)
+            .arg(savedAt);
 
         auto *item = new QListWidgetItem(label, m_list);
         item->setData(Qt::UserRole, sensorId);
+        item->setToolTip(
+            QString("Kliknij aby załadować %1 punktów pomiarowych\n"
+                    "Zakres: %2\nOstatni zapis: %3")
+            .arg(m->values.size()).arg(rangeStr).arg(savedAt));
     }
 
-    m_infoLabel->setText(QString("Zapisanych pomiarów: %1").arg(files.size()));
+    m_infoLabel->setText(QString("Zapisanych: %1 sensorów").arg(files.size()));
 }
 
 void HistoryWidget::onItemClicked(QListWidgetItem *item)
@@ -84,7 +102,8 @@ void HistoryWidget::onItemClicked(QListWidgetItem *item)
     if (!item) return;
     int sensorId = item->data(Qt::UserRole).toInt();
     auto m = LocalDatabase::instance().loadMeasurement(sensorId);
-    if (m) emit measurementSelected(*m);
+    if (m)
+        emit measurementSelected(*m);
 }
 
 void HistoryWidget::onDeleteClicked()
@@ -93,8 +112,8 @@ void HistoryWidget::onDeleteClicked()
     if (selected.isEmpty()) return;
 
     int choice = QMessageBox::question(this, "Usuń",
-                                       QString("Usunąć %1 zapisanych pomiarów?").arg(selected.size()),
-                                       QMessageBox::Yes | QMessageBox::No);
+        QString("Usunąć %1 zapisanych pomiarów?").arg(selected.size()),
+        QMessageBox::Yes | QMessageBox::No);
     if (choice != QMessageBox::Yes) return;
 
     QString dir = LocalDatabase::instance().dataDirectory();

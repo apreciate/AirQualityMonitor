@@ -7,7 +7,6 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Qt6 (fallback to Qt5)
 find_package(Qt6 COMPONENTS Core Widgets Network Charts QUIET)
 if(NOT Qt6_FOUND)
     find_package(Qt5 COMPONENTS Core Widgets Network Charts REQUIRED)
@@ -16,10 +15,8 @@ else()
     set(QT_VERSION_MAJOR 6)
 endif()
 
-# nlohmann/json (header-only, bundled)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-# GoogleTest
 include(FetchContent)
 FetchContent_Declare(
     googletest
@@ -29,7 +26,6 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Sources
 set(SOURCES
     src/main.cpp
     src/api/GiosApiClient.cpp
@@ -47,6 +43,7 @@ set(SOURCES
     src/gui/HistoryWidget.cpp
 )
 
+
 set(HEADERS
     src/api/GiosApiClient.h
     src/database/LocalDatabase.h
@@ -63,22 +60,15 @@ set(HEADERS
     src/gui/HistoryWidget.h
 )
 
-# Main executable
-add_executable(AirQualityMonitor ${SOURCES} ${HEADERS}
-    src/gui/HistoryWidget.h
-    src/gui/HistoryWidget.cpp)
+
+add_executable(AirQualityMonitor ${SOURCES} ${HEADERS})
 
 if(QT_VERSION_MAJOR EQUAL 6)
-    target_link_libraries(AirQualityMonitor
-        Qt6::Core Qt6::Widgets Qt6::Network Qt6::Charts
-    )
+    target_link_libraries(AirQualityMonitor Qt6::Core Qt6::Widgets Qt6::Network Qt6::Charts)
 else()
-    target_link_libraries(AirQualityMonitor
-        Qt5::Core Qt5::Widgets Qt5::Network Qt5::Charts
-    )
+    target_link_libraries(AirQualityMonitor Qt5::Core Qt5::Widgets Qt5::Network Qt5::Charts)
 endif()
 
-# Tests
 enable_testing()
 
 set(TEST_SOURCES
@@ -100,16 +90,11 @@ target_include_directories(AirQualityMonitorTests PRIVATE
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
-    target_link_libraries(AirQualityMonitorTests
-        GTest::gtest_main Qt6::Core Qt6::Network
-    )
+    target_link_libraries(AirQualityMonitorTests GTest::gtest_main Qt6::Core Qt6::Network)
 else()
-    target_link_libraries(AirQualityMonitorTests
-        GTest::gtest_main Qt5::Core Qt5::Network
-    )
+    target_link_libraries(AirQualityMonitorTests GTest::gtest_main Qt5::Core Qt5::Network)
 endif()
 
-# Skopiuj DLL Qt obok exe testów (Windows)
 if(WIN32)
     add_custom_command(TARGET AirQualityMonitorTests POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -122,7 +107,6 @@ endif()
 include(GoogleTest)
 gtest_discover_tests(AirQualityMonitorTests)
 
-# Doxygen
 find_package(Doxygen QUIET)
 if(DOXYGEN_FOUND)
     set(DOXYGEN_IN ${CMAKE_SOURCE_DIR}/docs/Doxyfile.in)

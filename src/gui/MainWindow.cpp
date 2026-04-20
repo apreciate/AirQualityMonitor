@@ -3,19 +3,18 @@
 #include "ChartWidget.h"
 #include "AnalysisWidget.h"
 #include "MapWidget.h"
-
+#include "HistoryWidget.h"
 #include <QMenuBar>
-#include <QMenu>
-#include <QAction>
 #include <QMessageBox>
-#include <QVBoxLayout>
-#include <QStatusBar>
-#include <QProgressBar>
-#include <QLabel>
 #include <QApplication>
-#include <QThread>
-#include <QtConcurrent/QtConcurrent>
+#include <QStatusBar>
 
+/**
+ * @brief Konstruktor głównego okna.
+ *
+ * Inicjalizuje wszystkie widgety, menu, pasek statusu oraz połączenia
+ * sygnałów i slotów. Na końcu uruchamia pobieranie stacji z API.
+ */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_apiClient(new GiosApiClient(this))
@@ -27,28 +26,24 @@ MainWindow::MainWindow(QWidget *parent)
     setupStatusBar();
     connectSignals();
     loadStationsFromApi();
+    // Załaduj historię od razu – dostępna nawet bez internetu
     m_history->refresh();
 }
 
-// ─── UI Setup ─────────────────────────────────────────────────────────────────
-
 void MainWindow::setupUi()
 {
-    m_tabs = new QTabWidget(this);
-
+    m_tabs        = new QTabWidget(this);
+    m_history     = new HistoryWidget(this);
     m_stationList = new StationListWidget(this);
     m_chart       = new ChartWidget(this);
     m_analysis    = new AnalysisWidget(this);
     m_map         = new MapWidget(this);
-    m_history     = new HistoryWidget(this);
 
-
-    m_tabs->addTab(m_history, "📂 Historia");
+    m_tabs->addTab(m_history,     "📂 Historia");
     m_tabs->addTab(m_stationList, "📋 Stacje");
     m_tabs->addTab(m_chart,       "📈 Wykres");
     m_tabs->addTab(m_analysis,    "🔍 Analiza");
     m_tabs->addTab(m_map,         "🗺️ Mapa");
-
     setCentralWidget(m_tabs);
 }
 
@@ -57,20 +52,16 @@ void MainWindow::setupMenuBar()
     QMenu *fileMenu = menuBar()->addMenu("&Plik");
     fileMenu->addAction("&Odśwież stacje", this, &MainWindow::onRefreshStations,
                         QKeySequence::Refresh);
-    fileMenu->addAction("&Zapisz dane", this, &MainWindow::onSaveData,
+    fileMenu->addAction("&Zapisz dane",    this, &MainWindow::onSaveData,
                         QKeySequence::Save);
     fileMenu->addSeparator();
-    fileMenu->addAction("&Wyjście", qApp, &QApplication::quit,
-                        QKeySequence::Quit);
+    fileMenu->addAction("&Wyjście", qApp, &QApplication::quit, QKeySequence::Quit);
 
-    QMenu *helpMenu = menuBar()->addMenu("&Pomoc");
-    helpMenu->addAction("&O programie", this, [this]() {
+    menuBar()->addMenu("&Pomoc")->addAction("&O programie", this, [this]() {
         QMessageBox::about(this, "O programie",
             "<h3>Monitor Jakości Powietrza</h3>"
-            "<p>Aplikacja pobiera i wizualizuje dane pomiarowe "
-            "z sieci GIOŚ (Główny Inspektorat Ochrony Środowiska).</p>"
-            "<p><b>Dane:</b> <a href='https://powietrze.gios.gov.pl'>powietrze.gios.gov.pl</a></p>"
-            "<p>Projekt zaliczeniowy – Języki Programowania Obiektowego 2025/2026</p>");
+            "<p>Dane: <a href='https://powietrze.gios.gov.pl'>powietrze.gios.gov.pl</a></p>"
+            "<p>Projekt zaliczeniowy – JPO 2025/2026</p>");
     });
 }
 
@@ -78,10 +69,9 @@ void MainWindow::setupStatusBar()
 {
     m_statusLabel = new QLabel("Gotowy", this);
     m_progressBar = new QProgressBar(this);
-    m_progressBar->setRange(0, 0);  // nieskończony spinner
+    m_progressBar->setRange(0, 0);
     m_progressBar->setFixedWidth(120);
     m_progressBar->setVisible(false);
-
     statusBar()->addWidget(m_statusLabel, 1);
     statusBar()->addPermanentWidget(m_progressBar);
 }
@@ -101,21 +91,24 @@ void MainWindow::connectSignals()
             this, &MainWindow::onLoadingStarted);
     connect(m_apiClient, &GiosApiClient::loadingFinished,
             this, &MainWindow::onLoadingFinished);
+
+    // ZADANIE 1: kliknięcie w historii używa trybu historycznego
     connect(m_history, &HistoryWidget::measurementSelected,
             this, [this](const Measurement &m) {
                 m_currentMeasurement = m;
-                m_chart->setMeasurement(m);
+                // setHistoricalMeasurement blokuje presety i nie dociąga danych
+                m_chart->setHistoricalMeasurement(m);
                 m_analysis->setMeasurement(m);
                 m_tabs->setCurrentWidget(m_chart);
+                m_statusLabel->setText(
+                    QString("📂 Historia: sensor %1 | %2 punktów")
+                    .arg(m.sensorId).arg(m.values.size()));
             });
 }
-
-// ─── Stacje ───────────────────────────────────────────────────────────────────
 
 void MainWindow::loadStationsFromApi()
 {
     m_statusLabel->setText("Pobieranie stacji z API...");
-
     m_apiClient->fetchAllStations(
         [this](std::vector<Station> stations) {
             m_stations = std::move(stations);
@@ -126,8 +119,7 @@ void MainWindow::loadStationsFromApi()
         },
         [this](const QString &err) {
             onApiError(err, [this]() { loadStationsFromDb(); });
-        }
-    );
+        });
 }
 
 void MainWindow::loadStationsFromDb()
@@ -140,12 +132,8 @@ void MainWindow::loadStationsFromDb()
     m_stations = std::move(stations);
     m_stationList->setStations(m_stations);
     m_map->setStations(m_stations);
-    m_statusLabel->setText(
-        QString("Załadowano %1 stacji z lokalnej bazy.").arg(m_stations.size()));
     showInfo("Brak połączenia z API – wyświetlane dane historyczne z lokalnej bazy.");
 }
-
-// ─── Sloty ────────────────────────────────────────────────────────────────────
 
 void MainWindow::onRefreshStations()
 {
@@ -156,23 +144,17 @@ void MainWindow::onRefreshStations()
 void MainWindow::onStationSelected(int stationId)
 {
     m_currentStationId = stationId;
-    m_statusLabel->setText(QString("Pobieranie sensorów dla stacji %1...").arg(stationId));
 
-    // Indeks jakości powietrza
     m_apiClient->fetchAirQualityIndex(stationId,
         [this](AirQualityIndex aqi) {
             m_stationList->setAirQualityIndex(aqi);
             LocalDatabase::instance().saveAirQualityIndex(aqi);
         },
-        [this](const QString &err) {
-            // Próba z lokalnej bazy
+        [this](const QString &) {
             auto aqi = LocalDatabase::instance().loadAirQualityIndex(m_currentStationId);
             if (aqi) m_stationList->setAirQualityIndex(*aqi);
-            else m_statusLabel->setText("Brak danych indeksu: " + err);
-        }
-    );
+        });
 
-    // Sensory
     m_apiClient->fetchSensors(stationId,
         [this, stationId](std::vector<Sensor> sensors) {
             m_sensors = std::move(sensors);
@@ -186,31 +168,30 @@ void MainWindow::onStationSelected(int stationId)
             if (!sensors.empty()) {
                 m_sensors = std::move(sensors);
                 m_stationList->setSensors(m_sensors);
-                showInfo("Sensory z lokalnej bazy danych.");
             } else {
                 showError("Nie można pobrać sensorów: " + err);
             }
-        }
-    );
+        });
 }
 
 void MainWindow::onSensorSelected(int sensorId)
 {
     m_currentSensorId = sensorId;
-    m_statusLabel->setText(QString("Pobieranie pomiarów dla sensora %1...").arg(sensorId));
+    m_statusLabel->setText(
+        QString("Pobieranie pomiarów dla sensora %1...").arg(sensorId));
 
     m_apiClient->fetchMeasurements(sensorId,
         [this](Measurement m) {
             m_currentMeasurement = std::move(m);
+            // Tryb live – setMeasurement odblokowuje presety
             m_chart->setMeasurement(m_currentMeasurement);
             m_analysis->setMeasurement(m_currentMeasurement);
+            // Automatyczny zapis + odświeżenie historii
             LocalDatabase::instance().saveMeasurement(m_currentMeasurement);
-            m_tabs->setCurrentWidget(m_chart);
-            LocalDatabase::instance().saveMeasurement(m_currentMeasurement);
-            m_history->refresh();
             LocalDatabase::instance().saveStations(m_stations);
             if (!m_sensors.empty())
                 LocalDatabase::instance().saveSensors(m_currentStationId, m_sensors);
+            m_history->refresh();
             m_tabs->setCurrentWidget(m_chart);
             m_statusLabel->setText(
                 QString("Załadowano %1 punktów pomiarowych.")
@@ -220,30 +201,26 @@ void MainWindow::onSensorSelected(int sensorId)
             auto m = LocalDatabase::instance().loadMeasurement(m_currentSensorId);
             if (m) {
                 m_currentMeasurement = *m;
-                m_chart->setMeasurement(m_currentMeasurement);
+                m_chart->setHistoricalMeasurement(m_currentMeasurement);
                 m_analysis->setMeasurement(m_currentMeasurement);
                 m_tabs->setCurrentWidget(m_chart);
-                showInfo("Pomiary z lokalnej bazy danych.");
+                m_statusLabel->setText("📂 Pomiary z lokalnej bazy.");
             } else {
                 showError("Nie można pobrać pomiarów: " + err);
             }
-        }
-    );
+        });
 }
 
 void MainWindow::onSaveData()
 {
-    if (m_stations.empty()) {
-        showError("Brak danych do zapisania.");
-        return;
-    }
     try {
-        LocalDatabase::instance().saveStations(m_stations);
+        if (!m_stations.empty())
+            LocalDatabase::instance().saveStations(m_stations);
         if (!m_sensors.empty() && m_currentStationId != -1)
             LocalDatabase::instance().saveSensors(m_currentStationId, m_sensors);
         if (!m_currentMeasurement.values.empty())
             LocalDatabase::instance().saveMeasurement(m_currentMeasurement);
-
+        m_history->refresh();
         showInfo(QString("Dane zapisano w: %1")
                  .arg(LocalDatabase::instance().dataDirectory()));
     } catch (const std::exception &e) {
